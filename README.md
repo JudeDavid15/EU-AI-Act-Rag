@@ -282,7 +282,6 @@ The raw-data folder currently contains HTML snapshots of the EU AI Act and GDPR.
 
 This is a research prototype and can produce incomplete, misattributed, or unsupported answers. It must not be used as the sole basis for legal decisions, regulatory filings, or compliance certification. Verify relevant claims against the official legal text and consult qualified legal professionals where appropriate.
 
-## License
 
 ## License
 
