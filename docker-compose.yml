@@ -1,0 +1,30 @@
+services:
+  api:
+      build:
+        context: .
+        dockerfile: Dockerfile.api
+      container_name: rag_fastapi_backend
+      ports:
+        - "8000:8000"
+      volumes:
+        - huggingface_cache:/root/.cache/huggingface
+        - ./data:/app/data
+        - ./indices:/app/indices
+      environment:
+        - PYTHONUNBUFFERED=1
+        - OLLAMA_HOST=http://host.docker.internal:11434
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: rag_streamlit_ui
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://api:8000
+    depends_on:
+      - api
+volumes:
+  huggingface_cache:

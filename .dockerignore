@@ -1,0 +1,49 @@
+﻿# Git metadata
+.git/
+.gitignore
+
+# Python caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Local data and indexes
+# These are mounted at runtime through docker-compose.yml
+data/
+indices/
+
+# Files not needed to build the application images
+evaluation/
+tests/
+scripts/
+test_*.py
+eval_rag.py
+path.py
+output.txt
+del_code.txt
+ragas_ollama_results.csv
+
+# Model and tool caches
+.cache/
+**/.cache/
+
+# Operating system and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

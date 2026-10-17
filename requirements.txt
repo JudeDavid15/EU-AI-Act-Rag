@@ -1,0 +1,30 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Web Framework & API Server
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.6.0
+
+# Frontend UI
+streamlit>=1.32.0
+requests>=2.31.0
+
+# Vector DB & Retrieval
+qdrant-client>=1.8.0
+rank-bm25>=0.2.2
+numpy>=1.26.0
+
+# Generation & LLM
+ollama>=0.1.7
+langchain-ollama
+langchain-community
+langchain
+
+# Machine Learning & Embeddings (CPU-optimized)
+torch>=2.2.0
+transformers>=4.38.0
+sentence-transformers>=2.5.0
+
+# Utilities
+watchfiles>=0.21.0
+beautifulsoup4>=4.12.0

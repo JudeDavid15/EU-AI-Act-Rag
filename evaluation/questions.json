@@ -1,0 +1,185 @@
+{
+    "name": "EU AI Act RAG Evaluation Suite",
+    "version": "1.0",
+    "description": "25-question benchmark for retrieval, exact citation, cross-Article confusion, and abstention testing.",
+    "questions": [{
+            "id": "Q01",
+            "question": "Which AI practices are prohibited under the EU AI Act?",
+            "expected_articles": ["Article 5"],
+            "requires_abstention": false,
+            "category": "direct_retrieval"
+        },
+
+
+        {
+            "id": "Q02",
+            "question": "What requirements does the EU AI Act establish for risk management systems for high-risk AI systems?",
+            "expected_articles": ["Article 9"],
+            "requires_abstention": false,
+            "category": "direct_retrieval"
+        },
+        {
+            "id": "Q03",
+            "question": "What are the EU AI Act's requirements concerning data and data governance for high-risk AI systems?",
+            "expected_articles": ["Article 10"],
+            "requires_abstention": false,
+            "category": "direct_retrieval"
+        },
+        {
+            "id": "Q04",
+            "question": "What must providers include in the technical documentation for high-risk AI systems?",
+            "expected_articles": ["Article 11"],
+            "requires_abstention": false,
+            "category": "direct_retrieval"
+        },
+        {
+            "id": "Q05",
+            "question": "What record-keeping obligations apply to high-risk AI systems?",
+            "expected_articles": ["Article 12"],
+            "requires_abstention": false,
+            "category": "direct_retrieval"
+        },
+        {
+            "id": "Q06",
+            "question": "What transparency and information obligations apply to providers of high-risk AI systems?",
+            "expected_articles": ["Article 13"],
+            "requires_abstention": false,
+            "category": "direct_retrieval"
+        },
+        {
+            "id": "Q07",
+            "question": "What are the requirements concerning human oversight of high-risk AI systems?",
+            "expected_articles": ["Article 14"],
+            "requires_abstention": false,
+            "category": "direct_retrieval"
+        },
+        {
+            "id": "Q08",
+            "question": "What requirements does the Act impose regarding accuracy, robustness and cybersecurity of high-risk AI systems?",
+            "expected_articles": ["Article 15"],
+            "requires_abstention": false,
+            "category": "direct_retrieval"
+        },
+        {
+            "id": "Q09",
+            "question": "What are the obligations of providers of high-risk AI systems under the EU AI Act?",
+            "expected_articles": ["Article 16"],
+            "requires_abstention": false,
+            "category": "direct_retrieval"
+        },
+        {
+            "id": "Q10",
+            "question": "What obligations do deployers of high-risk AI systems have?",
+            "expected_articles": ["Article 26"],
+            "requires_abstention": false,
+            "category": "direct_retrieval"
+        },
+        {
+            "id": "Q11",
+            "question": "When is a fundamental rights impact assessment required, and what does it involve?",
+            "expected_articles": ["Article 27"],
+            "requires_abstention": false,
+            "category": "exact_citation"
+        },
+        {
+            "id": "Q12",
+            "question": "What conformity assessment procedures apply to high-risk AI systems?",
+            "expected_articles": ["Article 43"],
+            "requires_abstention": false,
+            "category": "exact_citation"
+        },
+        {
+            "id": "Q13",
+            "question": "What transparency obligations apply to providers and deployers of certain AI systems?",
+            "expected_articles": ["Article 50"],
+            "requires_abstention": false,
+            "category": "exact_citation"
+        },
+        {
+            "id": "Q14",
+            "question": "What obligations apply to providers of general-purpose AI models?",
+            "expected_articles": ["Article 53"],
+            "requires_abstention": false,
+            "category": "exact_citation"
+        },
+        {
+            "id": "Q15",
+            "question": "What additional obligations apply to providers of general-purpose AI models with systemic risk?",
+            "expected_articles": ["Article 55"],
+            "requires_abstention": false,
+            "category": "exact_citation"
+        },
+        {
+            "id": "Q16",
+            "question": "What does Article 99 provide regarding penalties and other enforcement measures?",
+            "expected_articles": ["Article 99"],
+            "requires_abstention": false,
+            "category": "exact_citation"
+        },
+        {
+            "id": "Q17",
+            "question": "What administrative fines can apply to operators for prohibited AI practices under Article 5?",
+            "expected_articles": ["Article 99(3)"],
+            "requires_abstention": false,
+            "category": "exact_citation"
+        },
+        {
+            "id": "Q18",
+            "question": "What administrative fines can apply to operators for other specified infringements under Article 99?",
+            "expected_articles": ["Article 99(4)", "Article 99(5)"],
+            "requires_abstention": false,
+            "category": "exact_citation"
+        },
+        {
+            "id": "Q19",
+            "question": "What administrative fines can the European Data Protection Supervisor impose under Article 100?",
+            "expected_articles": ["Article 100"],
+            "requires_abstention": false,
+            "category": "exact_citation"
+        },
+        {
+            "id": "Q20",
+            "question": "Does Article 99 state that the Commission directly imposes the penalties on operators? Explain based only on the supplied legal context.",
+            "expected_articles": ["Article 99(1)", "Article 99(2)"],
+            "requires_abstention": false,
+            "category": "cross_article_confusion"
+        },
+        {
+            "id": "Q21",
+            "question": "According to Article 99, can the Commission itself impose the penalties laid down by Member States?",
+            "expected_articles": ["Article 99(1)", "Article 99(2)"],
+            "requires_abstention": false,
+            "category": "cross_article_confusion"
+        },
+        {
+            "id": "Q22",
+            "question": "What is the exact fine for prohibited AI practices under Article 100(2)?",
+            "expected_articles": ["Article 100(2)"],
+            "requires_abstention": false,
+            "category": "cross_article_confusion"
+        },
+        {
+            "id": "Q23",
+            "question": "What are the penalties for an infringement covered by Article 99(4), and which entities do those penalties concern?",
+            "expected_articles": ["Article 99(4)"],
+            "requires_abstention": false,
+            "category": "cross_article_confusion"
+        },
+
+        {
+            "id": "Q24",
+            "question": "Article 100(5) concerns what type of conduct, and what fine does it provide?",
+            "expected_articles": ["Article 100(5)"],
+            "requires_abstention": false,
+            "category": "cross_article_confusion"
+        },
+        {
+            "id": "Q25",
+            "question": "Based only on Article 9, what administrative fine applies to failure to comply with the risk-management requirements?",
+            "expected_articles": [],
+            "requires_abstention": true,
+            "context_articles": ["Article 9"],
+            "category": "abstention"
+        }
+    ]
+}

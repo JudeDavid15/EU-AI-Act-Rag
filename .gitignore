@@ -1,0 +1,45 @@
+﻿# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Logs and temporary output
+*.log
+output.txt
+del_code.txt
+ragas_ollama_results.csv
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Model caches
+.cache/
+
+# Qdrant lock file
+data/qdrant_db/.lock
+
+# Superseded evaluation baseline
+evaluation/benchmark_results_pre_Q12_fix.json
+evaluation/benchmark_results.json
+
+# Duplicate browser-saved consolidated source
+data/raw/Consolidated TEXT*
