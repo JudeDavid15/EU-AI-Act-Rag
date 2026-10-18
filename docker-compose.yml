@@ -16,7 +16,7 @@ services:
         - CACHE_ENABLED=true
         - REDIS_URL=redis://valkey:6379/0
         - CACHE_TTL_SECONDS=3600
-        - RAG_CACHE_VERSION=eu-ai-act-rag-v1
+        - RAG_CACHE_VERSION=eu-ai-act-rag-v2
       depends_on:
         valkey:
           condition: service_healthy

@@ -24,6 +24,7 @@ from src.generation.generation import (
     RAGGenerator,
     ExactProvisionNotRetrievedError,
 )
+from src.retrieval.legal_reference_router import LegalReferenceRouter
 
 pipeline_components: Dict[str, Any] = {}
 
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     pipeline_components["context_builder"] = ContextBuilder()
     pipeline_components["generator"] = RAGGenerator()
     pipeline_components["verifier"] = NLIConstraintVerifier()
+    pipeline_components["legal_router"] = LegalReferenceRouter()
     pipeline_components["cache"] = None
     cache_client = None
 
@@ -238,13 +240,90 @@ def _execute_rag_query(
 
         t0 = time.time()
         progress("Retrieving candidate passages with hybrid search...")
-        candidates = retriever.search(query=payload.query, top_n=payload.top_n_candidates)
+
+        candidates = retriever.search(
+            query=payload.query,
+            top_n=payload.top_n_candidates,
+        )
+
+        legal_router = pipeline_components["legal_router"]
+        article_refs = legal_router.extract_article_references(
+            payload.query
+        )
+        forced_candidates = legal_router.forced_candidates_for_query(
+            payload.query
+        )
+
+        requested_article_numbers = set()
+
+        for ref in article_refs:
+            match = re.search(
+                r"\bArticle\s+(\d+[a-z]?)",
+                ref,
+                re.IGNORECASE,
+            )
+            if match:
+                requested_article_numbers.add(
+                    match.group(1).casefold()
+                )
+
+        # Preserve the existing special handling for questions about
+        # penalties arising from Article 5 prohibited practices.
+        article5_penalty_query = bool(
+            re.search(r"\bArticle\s+5\b", payload.query, re.IGNORECASE)
+            and re.search(
+                r"\b(?:fine|fines|penalty|penalties)\b",
+                payload.query,
+                re.IGNORECASE,
+            )
+        )
+
+        routed_candidates = []
+
+        if requested_article_numbers and not article5_penalty_query:
+            for candidate in forced_candidates:
+                match = re.search(
+                    r"\bArticle\s+(\d+[a-z]?)",
+                    str(candidate.get("article_number", "")),
+                    re.IGNORECASE,
+                )
+
+                if (
+                    match
+                    and match.group(1).casefold()
+                    in requested_article_numbers
+                ):
+                    routed_candidates.append(candidate)
+
+        # A directly referenced article takes priority over unrelated
+        # hybrid-search results.
+        if routed_candidates:
+            candidates = routed_candidates
+        else:
+            # Otherwise, augment hybrid results with useful routed candidates.
+            merged = {}
+
+            for candidate in candidates + forced_candidates:
+                chunk_id = str(candidate.get("chunk_id", ""))
+
+                if not chunk_id:
+                    continue
+
+                merged[chunk_id] = {
+                    **merged.get(chunk_id, {}),
+                    **candidate,
+                }
+
+            candidates = list(merged.values())
+
         t1 = time.time()
         print(f"[TIMING] retrieval: {t1 - t0:.2f}s")
 
         if not candidates:
-            raise HTTPException(status_code=404, detail="No relevant knowledge base chunks found for query.")
-
+            raise HTTPException(
+                status_code=404,
+                detail="No relevant knowledge base chunks found for query.",
+            )
         progress("Reranking retrieved passages...")
         # Detect questions that explicitly reference a legal provision.
         exact_provision_pattern = (
@@ -298,6 +377,13 @@ def _execute_rag_query(
                 query=payload.query,
                 candidates=target_candidates,
                 top_n=len(target_candidates),
+            )
+
+        elif requested_article_numbers and not article5_penalty_query:
+            top_chunks = reranker.rerank(
+            query=payload.query,
+            candidates=candidates,
+            top_n=len(candidates),
             )
 
         else:
