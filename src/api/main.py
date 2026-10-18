@@ -9,7 +9,9 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import time
-
+import hashlib
+import redis
+import os
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[2]))
@@ -33,6 +35,38 @@ async def lifespan(app: FastAPI):
     pipeline_components["context_builder"] = ContextBuilder()
     pipeline_components["generator"] = RAGGenerator()
     pipeline_components["verifier"] = NLIConstraintVerifier()
+    pipeline_components["cache"] = None
+    cache_client = None
+
+    if os.getenv("CACHE_ENABLED", "true").lower() in {
+        "1", "true", "yes", "on"
+    }:
+        try:
+            cache_client = redis.Redis.from_url(
+                os.getenv(
+                    "REDIS_URL",
+                    "redis://localhost:6379/0",
+                ),
+                decode_responses=True,
+                socket_connect_timeout=2,
+                socket_timeout=2,
+            )
+            cache_client.ping()
+
+            pipeline_components["cache"] = cache_client
+            print("[CACHE] Connected to Valkey.")
+
+        except (redis.RedisError, ValueError) as exc:
+            if cache_client is not None:
+                cache_client.close()
+
+            pipeline_components["cache"] = None
+            print(
+                "[CACHE] Valkey unavailable; "
+                f"continuing without shared cache: {exc}"
+            )
+    else:
+        print("[CACHE] Shared response cache disabled.")
 
     print("Pipeline Ready to accept Requests.")
     yield
@@ -42,6 +76,9 @@ async def lifespan(app: FastAPI):
         pipeline_components["retriever"].close()
     if "reranker" in pipeline_components and hasattr(pipeline_components["reranker"], "close"):
         pipeline_components["reranker"].close()
+    cache_client = pipeline_components.get("cache")
+    if cache_client is not None:
+        cache_client.close()
     pipeline_components.clear()
 
 app = FastAPI(
@@ -87,6 +124,86 @@ class QueryResponse(BaseModel):
     answer: str
     sources: List[Dict[str, Any]]
     verification_audit: GuardrailAudit
+
+def _response_cache_key(payload: QueryRequest) -> str:
+    material = json.dumps(
+        {
+            "version": os.getenv(
+                "RAG_CACHE_VERSION",
+                "eu-ai-act-rag-v1",
+            ),
+            "query": payload.query,
+            "top_n_candidates": payload.top_n_candidates,
+            "top_n_rerank": payload.top_n_rerank,
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+    digest = hashlib.sha256(
+        material.encode("utf-8")
+    ).hexdigest()
+
+    return f"rag:response:{digest}"
+
+
+def _get_cached_response(
+    payload: QueryRequest,
+) -> Optional[QueryResponse]:
+    cache = pipeline_components.get("cache")
+    if cache is None:
+        return None
+
+    try:
+        cached_json = cache.get(
+            _response_cache_key(payload)
+        )
+
+        if not cached_json:
+            print("[CACHE] MISS")
+            return None
+
+        result = QueryResponse.model_validate_json(
+            cached_json
+        )
+        print("[CACHE] HIT")
+        return result
+
+    except Exception as exc:
+        print(
+            "[CACHE] Read failed; bypassing cache: "
+            f"{type(exc).__name__}"
+        )
+        return None
+
+
+def _store_cached_response(
+    payload: QueryRequest,
+    result: QueryResponse,
+) -> None:
+    cache = pipeline_components.get("cache")
+    if cache is None:
+        return
+
+    try:
+        ttl = max(
+            1,
+            int(os.getenv("CACHE_TTL_SECONDS", "3600")),
+        )
+
+        cache.setex(
+            _response_cache_key(payload),
+            ttl,
+            result.model_dump_json(),
+        )
+        print(f"[CACHE] STORED (TTL={ttl}s)")
+
+    except Exception as exc:
+        print(
+            "[CACHE] Write failed; continuing normally: "
+            f"{type(exc).__name__}"
+        )
 
 @app.get("/", status_code=status.HTTP_200_OK)
 async def read_root():
@@ -261,10 +378,21 @@ def _execute_rag_query(
             detail=f"Internal RAG pipeline failure: {str(e)}",
         )
 
-@app.post("/query", response_model=QueryResponse, status_code=status.HTTP_200_OK)
+@app.post(
+    "/query",
+    response_model=QueryResponse,
+    status_code=status.HTTP_200_OK,
+)
 def process_rag_query(payload: QueryRequest):
-    return _execute_rag_query(payload)
+    cached = _get_cached_response(payload)
 
+    if cached is not None:
+        return cached
+
+    result = _execute_rag_query(payload)
+    _store_cached_response(payload, result)
+
+    return result
 
 @app.post("/query/stream", status_code=status.HTTP_200_OK)
 def process_rag_query_stream(payload: QueryRequest):
@@ -276,12 +404,37 @@ def process_rag_query_stream(payload: QueryRequest):
 
         def worker() -> None:
             try:
+                cached = _get_cached_response(payload)
+
+                if cached is not None:
+                    push({
+                        "type": "status",
+                        "message": "Loaded verified response from shared cache.",
+                    })
+                    push({
+                        "type": "complete",
+                        "data": jsonable_encoder(cached),
+                    })
+                    return
+
                 result = _execute_rag_query(
                     payload,
-                    on_progress=lambda message: push({"type": "status", "message": message}),
-                    on_token=lambda token: push({"type": "token", "text": token}),
+                    on_progress=lambda message: push({
+                        "type": "status",
+                        "message": message,
+                    }),
+                    on_token=lambda token: push({
+                        "type": "token",
+                        "text": token,
+                    }),
                 )
-                push({"type": "complete", "data": jsonable_encoder(result)})
+
+                _store_cached_response(payload, result)
+
+                push({
+                    "type": "complete",
+                    "data": jsonable_encoder(result),
+                })
             except HTTPException as exc:
                 push({
                     "type": "error",
