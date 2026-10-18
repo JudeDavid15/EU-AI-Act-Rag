@@ -13,6 +13,13 @@ services:
       environment:
         - PYTHONUNBUFFERED=1
         - OLLAMA_HOST=http://host.docker.internal:11434
+        - CACHE_ENABLED=true
+        - REDIS_URL=redis://valkey:6379/0
+        - CACHE_TTL_SECONDS=3600
+        - RAG_CACHE_VERSION=eu-ai-act-rag-v1
+      depends_on:
+        valkey:
+          condition: service_healthy
       extra_hosts:
         - "host.docker.internal:host-gateway"
   ui:
@@ -26,5 +33,25 @@ services:
       - API_BASE_URL=http://api:8000
     depends_on:
       - api
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: rag_valkey_cache
+    command:
+      - valkey-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 volumes:
   huggingface_cache:
+  valkey_data:

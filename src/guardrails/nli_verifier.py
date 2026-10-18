@@ -386,35 +386,61 @@ class NLIConstraintVerifier:
             def flush_subpoint() -> None:
                 nonlocal current_letter, current_sub_lines
 
-                if current_letter is not None:
-                    text = " ".join(
-                        current_sub_lines
-                    ).strip()
-
-                    if text:
-                        subpoints.append(
-                            (
-                                current_letter,
-                                [text],
-                            )
+                if current_letter is not None and current_sub_lines:
+                    subpoints.append(
+                        (
+                            current_letter,
+                            current_sub_lines.copy(),
                         )
+                    )
 
                 current_letter = None
                 current_sub_lines = []
 
-            for line in paragraph_lines:
-
+            for line_index, line in enumerate(paragraph_lines):
                 match_with_text = letter_with_text.match(line)
                 match_only = letter_only.match(line)
 
-                if match_with_text:
+                # Labels such as (i) are ambiguous:
+                # they can be a letter or a nested Roman numeral.
+                nested_roman = False
+
+                if match_with_text and current_letter is not None:
+                    label = match_with_text.group(1).lower()
+
+                    if label in {"i", "v", "x", "l", "c", "d", "m"}:
+                        previous_text = (
+                            current_sub_lines[-1].rstrip()
+                            if current_sub_lines
+                            else ""
+                        )
+
+                        next_line = (
+                            paragraph_lines[line_index + 1]
+                            if line_index + 1 < len(paragraph_lines)
+                            else ""
+                        )
+
+                        next_is_roman_continuation = bool(
+                            re.match(
+                                r"^\((?:ii|iii|iv|vi|vii|viii|ix|xi|xii)\)\s+",
+                                next_line,
+                                re.IGNORECASE,
+                            )
+                        )
+
+                        nested_roman = (
+                            previous_text.endswith(":")
+                            or next_is_roman_continuation
+                        )
+
+                if nested_roman:
+                    current_sub_lines.append(line)
+
+                elif match_with_text:
                     flush_subpoint()
 
-                    current_letter = (
-                        match_with_text.group(1)
-                        .lower()
-                    )
-
+                    current_letter = match_with_text.group(1).lower()
                     current_sub_lines = [
                         match_with_text.group(2).strip()
                     ]
@@ -422,16 +448,11 @@ class NLIConstraintVerifier:
                 elif match_only:
                     flush_subpoint()
 
-                    current_letter = (
-                        match_only.group(1)
-                        .lower()
-                    )
-
+                    current_letter = match_only.group(1).lower()
                     current_sub_lines = []
 
                 elif current_letter is not None:
                     current_sub_lines.append(line)
-
             flush_subpoint()
 
             for letter, sub_lines in subpoints:
