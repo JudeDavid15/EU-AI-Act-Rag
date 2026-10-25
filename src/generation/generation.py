@@ -84,6 +84,11 @@ LEGAL FAITHFULNESS
   Example: if the provision says "Any information obtained shall be treated in accordance
   with X", write "Information obtained pursuant to this Article shall be treated in
   accordance with X [Article N(3)]." Do NOT write "Providers shall ensure that...".
+- Preserve the exact legal actor and role stated in the cited provision. Do not convert an obligation of an authorised representative into an obligation of a provider, or vice versa.
+- For broad questions about a particular actor, include only obligations that the supplied provision actually imposes on that actor. Do not include obligations imposed on a different actor merely because they concern the same subject.
+- Every bullet must be a complete, grammatical sentence. Preserve conditions, qualifications, and the relationship between the subject and its obligation. Never output a fragment created by joining unrelated clauses or dropping the beginning of a provision.
+- Before finishing, check that the final sentence is complete. If the answer is too long, remove lower-priority points rather than truncating a sentence.
+- Never join a condition or subordinate clause to a different grammatical subject in a way that changes its meaning. Preserve the complete subject, verb, condition, and consequence of each legal rule.
 
 ANSWER DISCIPLINE
 - Answer the user's exact question directly.
@@ -304,6 +309,17 @@ class RAGGenerator:
             flags=re.IGNORECASE,
         ):
             allowed = {"article 12"}
+        elif (
+            re.search(r"\bproviders?\b", lowered, flags=re.IGNORECASE)
+            and re.search(
+                r"\bgeneral[- ]purpose\s+AI\s+models?\b",
+                lowered,
+                flags=re.IGNORECASE,
+            )
+        ):
+         allowed = {"article 53", "article 55"}
+
+
 
         elif refs:
             allowed = {
@@ -494,8 +510,18 @@ class RAGGenerator:
         chat_fn = chat_client.chat if chat_client else ollama.chat
 
         if on_token is None:
-            return chat_fn(**kwargs)
+            response = chat_fn(**kwargs)
 
+            print(
+                "[OLLAMA TIMING] "
+                f"prompt_tokens={getattr(response, 'prompt_eval_count', None)}, "
+                f"generated_tokens={getattr(response, 'eval_count', None)}, "
+                f"prompt_eval_ns={getattr(response, 'prompt_eval_duration', None)}, "
+                f"generation_eval_ns={getattr(response, 'eval_duration', None)}, "
+                f"total_duration_ns={getattr(response, 'total_duration', None)}"
+            )
+
+            return response
         parts: List[str] = []
         for chunk in chat_fn(**kwargs):
             message = getattr(chunk, "message", None)
@@ -752,7 +778,7 @@ class RAGGenerator:
         context = self._context_focus_block(query, focus_payload)
         exact_mode = self._is_exact_reference_query(query)
         penalty_mode = self._is_penalty_query(query)
-        max_tokens = (300 if exact_mode else 420 if penalty_mode else 700)
+        max_tokens = (300 if exact_mode else 420 if penalty_mode else 1000)
         citation_targets = self._citation_targets(query)
         article50_transparency_query = bool(
             re.search(

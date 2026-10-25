@@ -79,7 +79,13 @@ class NLIConstraintVerifier:
             return False
         if re.search(r"(?:,|\b(?:and|or|the|which|that|including|as)\s*)$", value, flags=re.IGNORECASE):
             return False
-
+        if re.match(
+            r"^in identifying the most appropriate risk management measures,"
+            r"\s+the following shall be ensured:?$",
+            value,
+            flags=re.IGNORECASE,
+        ):
+            return False
         return True
 
     def _extract_claims_with_citations(

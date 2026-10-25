@@ -13,20 +13,22 @@ class ContextBuilder:
         max_total_chars: int = 6000,
         max_source_chars: int = 2500,
         expansion_radius: int = 2,
+        processed_json_path: Path = PROCESSED_JSON_PATH,
     ):
-        if not PROCESSED_JSON_PATH.exists():
+        if not processed_json_path.exists():
             raise FileNotFoundError(
-                f"Missing chunk data at {PROCESSED_JSON_PATH}"
+                f"Missing chunk data at {processed_json_path}"
             )
 
-        with open(PROCESSED_JSON_PATH, "r", encoding="utf-8") as f:
+        with open(processed_json_path, "r", encoding="utf-8") as f:
             parents_data = json.load(f)
+
+        self.processed_json_path = processed_json_path
 
         self.parent_map: Dict[str, Dict[str, Any]] = {
             parent["parent_id"]: parent
             for parent in parents_data
         }
-
 
         self.max_total_chars = max_total_chars
         self.max_source_chars = max_source_chars
@@ -43,7 +45,6 @@ class ContextBuilder:
                 for index, child in enumerate(children)
                 if child.get("chunk_id")
             }
-
     def _get_local_chunk_indices(
         self,
         parent_id: str,
@@ -345,15 +346,42 @@ class ContextBuilder:
             selected_texts.append(text)
             selected_ids.append(chunk_id)
 
-            paragraph_number = paragraph_by_index.get(
-                index
+            stored_paragraph = child.get("paragraph_number")
+            paragraph_number = (
+                stored_paragraph
+                if stored_paragraph is not None
+                else paragraph_by_index.get(index)
             )
+
+            stored_citation = str(
+                child.get("citation_label") or ""
+            ).strip()
+
+            citation_label = (
+                stored_citation
+                or citation_label_by_index.get(index)
+            )
+
+            if not citation_label:
+                article_label = str(
+                    parent.get("article_number", "")
+                ).strip()
+
+                if article_label and not article_label.lower().startswith("article "):
+                    article_label = f"Article {article_label}"
+
+                if paragraph_number is not None:
+                    citation_label = (
+                        f"{article_label}({paragraph_number})"
+                    )
+                else:
+                    citation_label = article_label
 
             selected_chunks.append({
                 "chunk_id": chunk_id,
                 "text": text,
                 "paragraph_number": paragraph_number,
-                "citation_label": citation_label_by_index.get(index),
+                "citation_label": citation_label,
             })
         return (
             "\n\n".join(selected_texts),
@@ -388,11 +416,12 @@ class ContextBuilder:
 
             grouped.setdefault(parent_id, []).append(chunk_index)
 
-            chunk_priority = max(
-                float(chunk.get("rerank_score", 0.0)),
-                float(chunk.get("score", 0.0)),
-                float(chunk.get("exact_reference_boost", 0.0)),
-            )
+            chunk_priority = float(
+                    chunk.get(
+                        "rerank_score",
+                        chunk.get("rrf_score", chunk.get("score", 0.0)),
+                    )
+                    )
 
             score_map[parent_id] = max(
                 score_map.get(parent_id, float("-inf")),
@@ -406,7 +435,7 @@ class ContextBuilder:
             key=lambda pid: score_map.get(pid, 0.0),
             reverse=True,
         )
-
+       
         sources = []
         total_chars = 0
 
@@ -425,7 +454,7 @@ class ContextBuilder:
 
             if not local_text:
                 continue
-
+           
             remaining_budget = (
                 self.max_total_chars - total_chars
             )
@@ -545,7 +574,17 @@ if __name__ == "__main__":
         max_source_chars=2500,
         expansion_radius=2,
     )
-
+    print("\n=== RAW RETRIEVAL SCORES ===")
+    for chunk in top_chunks[:10]:
+        print({
+            "article": chunk.get("article_number"),
+            "citation": chunk.get("citation_label"),
+            "chunk_id": chunk.get("chunk_id"),
+            "score": chunk.get("score"),
+            "rerank_score": chunk.get("rerank_score"),
+            "rrf_score": chunk.get("rrf_score"),
+            "exact_reference_boost": chunk.get("exact_reference_boost"),
+        })
     context_payload = builder.build_context(
         top_chunks
     )

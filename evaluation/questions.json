@@ -168,7 +168,7 @@
 
         {
             "id": "Q24",
-            "question": "Article 100(5) concerns what type of conduct, and what fine does it provide?",
+            "question": "Does Article 100(5) specify a type of conduct and an administrative fine? Explain what the provision actually provides.",
             "expected_articles": ["Article 100(5)"],
             "requires_abstention": false,
             "category": "cross_article_confusion"
