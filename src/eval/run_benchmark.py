@@ -229,6 +229,11 @@ def run_question(
             )
 
     rerank_top_n = choose_rerank_top_n(query)
+    print(
+    f"[RERANK INPUT] raw={len(raw_candidates)}, "
+    f"augmented={len(augmented)}, "
+    f"rerank_top_n={rerank_top_n}"
+    )
 
     start = time.perf_counter()
     top_chunks = reranker.rerank(
@@ -451,6 +456,11 @@ def main() -> None:
         nargs="+",
         help="Run only selected question IDs, e.g. --ids Q01 Q12 Q20"
     )
+    parser.add_argument(
+        "--staging",
+        action="store_true",
+        help="Use consolidated preview indexes instead of production indexes",
+    )
     args = parser.parse_args()
 
     questions = load_questions()
@@ -472,9 +482,23 @@ def main() -> None:
     print("=" * 70)
     print(f"Questions: {len(questions)}")
 
-    retriever = HybridRetriever()
+    if args.staging:
+        root = Path.cwd()
+
+        retriever = HybridRetriever(
+            bm25_index_path=root / "data/processed/bm25_consolidated_preview.pkl",
+            qdrant_db_path=root / "data/qdrant_db_consolidated_preview",
+            collection_name="eu_ai_act_clauses_preview",
+        )
+
+        builder = ContextBuilder(
+            processed_json_path=root / "data/processed/chunks_consolidated_preview.json"
+        )
+    else:
+        retriever = HybridRetriever()
+        builder = ContextBuilder()
+
     reranker = Reranker()
-    builder = ContextBuilder()
     router = LegalReferenceRouter()
     generator = RAGGenerator()
     verifier = NLIConstraintVerifier()

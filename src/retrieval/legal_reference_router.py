@@ -153,8 +153,18 @@ class LegalReferenceRouter:
                     child["legal_reference_boost"] = 1000.0
                     merged.append(child)
                     seen.add(cid)
+        if self.extract_article_references(query):
+            title_matches = []
+        else:
+            title_matches = self._title_matches(query)
 
-        for title_score, parent in self._title_matches(query):
+        print(
+            "[TITLE AUGMENTATION]",
+            [(p.get("article_number"), round(score, 3))
+            for score, p in title_matches],
+        )
+
+        for title_score, parent in title_matches:
             article = str(parent.get("article_number", ""))
             boost = 700.0 + 100.0 * title_score
             for child in self._article_children(article):
@@ -169,7 +179,7 @@ class LegalReferenceRouter:
         penalty_intent = bool(
             re.search(r"\b(?:fine|fines|penalt(?:y|ies)|administrative fines?)\b", lowered)
         )
-        if penalty_intent:
+        if penalty_intent and not self.extract_article_references(query):
             for article in ("Article 99", "Article 100"):
                 for child in self._article_children(article):
                     cid = str(child.get("chunk_id", ""))
@@ -177,7 +187,6 @@ class LegalReferenceRouter:
                         child["penalty_boost"] = 650.0
                         merged.append(child)
                         seen.add(cid)
-
         return merged
 
 

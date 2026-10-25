@@ -12,15 +12,25 @@ COLLECTION_NAME="eu_ai_act_clauses"
 EMBEDDING_MODEL_NAME="BAAI/bge-small-en-v1.5"
 
 class HybridRetriever:
-    def __init__(self):
-        if not BM25_INDEX_PATH.exists():
-            raise FileNotFoundError("BM25 index missing. build indices first!")
-        with open(BM25_INDEX_PATH,"rb") as f:
-            data=pickle.load(f)
-            self.bm25=data["bm25"]
-            self.bm25_chunks=data["chunks"]
-        self.encoder=SentenceTransformer(EMBEDDING_MODEL_NAME)
-        self.qdrant=QdrantClient(path=str(QDRANT_DB_PATH))
+    def __init__(
+    self,
+    bm25_index_path: Path = BM25_INDEX_PATH,
+    qdrant_db_path: Path = QDRANT_DB_PATH,
+    collection_name: str = COLLECTION_NAME,
+):
+        if not bm25_index_path.exists():
+            raise FileNotFoundError(
+                f"BM25 index missing: {bm25_index_path}"
+            )
+
+        with open(bm25_index_path, "rb") as f:
+            data = pickle.load(f)
+            self.bm25 = data["bm25"]
+            self.bm25_chunks = data["chunks"]
+
+        self.encoder = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        self.collection_name = collection_name
+        self.qdrant = QdrantClient(path=str(qdrant_db_path))
     def _sparse_search(self,query:str,top_k:int=30)->List[Dict[str,Any]]:
         tokenized_query=query.lower().split()
         scores=self.bm25.get_scores(tokenized_query)
@@ -37,7 +47,9 @@ class HybridRetriever:
                 "article_number":chunk["article_number"],
                 "title":chunk["title"],
                 "parent_id":chunk["parent_id"],
-                "score":float(scores[idx])
+                "score":float(scores[idx]),
+                "citation_label": chunk.get("citation_label"),
+                "paragraph_number": chunk.get("paragraph_number"),
             })
         return results
 
@@ -45,7 +57,7 @@ class HybridRetriever:
         query_vector=self.encoder.encode(query,normalize_embeddings=True).tolist()
 
         search_result=self.qdrant.query_points(
-            collection_name=COLLECTION_NAME,
+            collection_name=self.collection_name,
             query=query_vector,
             limit=top_k
         )
@@ -59,7 +71,9 @@ class HybridRetriever:
                 "article_number": payload["article_number"],
                 "title": payload["title"],
                 "parent_id": payload["parent_id"],
-                "score": float(hit.score)
+                "score": float(hit.score),
+                "citation_label": payload.get("citation_label"),
+                "paragraph_number": payload.get("paragraph_number"),
             })
         return results
 
